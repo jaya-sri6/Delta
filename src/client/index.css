@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-primary font-sans;
+    background-color: #10110F;
+    color: #F2F1EB;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom editorial scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #10110F;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232521;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3F423C;
+}
+
+/* Markdown tables styling */
+.markdown-body table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1rem 0;
+  border: 1px solid #2E302B;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #161715;
+}
+
+.markdown-body th {
+  background-color: #1C1D1A;
+  color: #F2F1EB;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 1px solid #2E302B;
+  text-align: left;
+}
+
+.markdown-body td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #242622;
+  color: #C8C7BF;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.markdown-body tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-body tr:hover td {
+  background-color: rgba(196, 244, 93, 0.03);
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid #C4F45D;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #92938C;
+  font-style: italic;
+  background-color: rgba(196, 244, 93, 0.04);
+  padding: 0.75rem 1rem;
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown-body code {
+  font-family: 'JetBrains Mono', monospace;
+  background-color: #1C1D1A;
+  border: 1px solid #2E302B;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #C4F45D;
+}
+
+.markdown-body pre {
+  background-color: #141513;
+  border: 1px solid #2E302B;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  color: #F2F1EB;
+}
+
+.markdown-body a {
+  color: #C4F45D;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.15s;
+}
+
+.markdown-body a:hover {
+  opacity: 0.85;
+}
+
