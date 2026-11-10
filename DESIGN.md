@@ -27,7 +27,68 @@ DELTA was engineered specifically to satisfy the four evaluation pillars of the 
 
 ---
 
-## 3. Why Event-Based Memory Was Selected
+## 3. System Architecture & Execution Flow
+
+### 3.1 High-Level System Architecture
+```mermaid
+flowchart TD
+    User["User / Client Application"] <--> |"REST / SSE Stream"| Gateway["Fastify API Gateway (Port 3000)"]
+    subgraph Core ["Agent Orchestration Core"]
+        Gateway --> Orchestrator["Agent Orchestrator"]
+        Orchestrator --> Classifier["Intent Classifier & Decomposer"]
+        Orchestrator --> Temporal["Temporal Resolver (Clock Injected)"]
+        Orchestrator --> Retrieval["Relevance-Scoped Memory Retrieval"]
+        Orchestrator --> Planner["Adaptive Research Planner"]
+        Planner --> |"Targeted Query Batches"| WebSearch["Web Search Service (Tavily)"]
+        WebSearch --> RelFilter["Relevance & Domain Filter"]
+        RelFilter --> EvidenceRepo["Evidence Repository"]
+        Retrieval --> SQLiteStore[("SQLite Storage (Events, Claims, FTS5)")]
+        EvidenceRepo --> ComparisonEngine["Temporal Comparison & Conflict Engine"]
+        SQLiteStore --> ComparisonEngine
+        ComparisonEngine --> CitationVal["Citation Validator"]
+        CitationVal --> Synthesizer["Answer Synthesizer"]
+        Synthesizer --> Streamer["SSE Token Streamer"]
+        Synthesizer --> EventExtractor["Event & Memory Extractor"]
+        EventExtractor --> SQLiteStore
+    end
+    Streamer --> User
+```
+
+### 3.2 Multi-Topic Intent Decomposition & Isolated Retrieval Pipeline
+```mermaid
+flowchart LR
+    Msg["User Message"] --> Decomp["Intent Decomposition"]
+    Decomp --> SubA["Subtopic 1: CRM"]
+    Decomp --> SubB["Subtopic 2: PostgreSQL"]
+    SubA --> RetA["Scoped Retrieval (CRM Fixture)"]
+    SubB --> RetB["Scoped Retrieval (PostgreSQL Fixture)"]
+    RetA --> PlanA["Plan & Search (CRM)"]
+    RetB --> PlanB["Plan & Search (PostgreSQL)"]
+    PlanA --> VerifyA["Claim Verification & Audit"]
+    PlanB --> VerifyB["Claim Verification & Audit"]
+    VerifyA --> SecA["Section 1: CRM Synthesis"]
+    VerifyB --> SecB["Section 2: PostgreSQL Synthesis"]
+    SecA --> Out["Delineated Answer with Citations"]
+    SecB --> Out
+```
+
+### 3.3 Claim Verification Lifecycle & State Machine
+```mermaid
+stateDiagram-v2
+    [*] --> NOT_CHECKED : "Historical Baseline Claim Initialized"
+    NOT_CHECKED --> UNVERIFIED : "No Live Evidence / Search Empty"
+    NOT_CHECKED --> CONFLICTING : "Multiple Sources Report Contradictory Rates"
+    NOT_CHECKED --> INCOMPARABLE_BILLING_CYCLE : "Billing Term Mismatch (Annual vs Monthly)"
+    NOT_CHECKED --> VERIFIED : "Direct Official Evidence Confirms Metric"
+    NOT_CHECKED --> PARTIALLY_VERIFIED : "Rate Matches but Assumptions Incomplete (e.g. AWS Single-AZ)"
+    VERIFIED --> UNCHANGED : "Current Rate Matches Baseline under Identical Terms"
+    VERIFIED --> CHANGED : "Current Rate Differs from Historical Baseline"
+    VERIFIED --> FEATURE_RELEASED : "Official Release Post-Dates Baseline Date"
+```
+
+---
+
+## 4. Why Event-Based Memory Was Selected
 
 Storing unstructured conversation summaries loses semantic granularity. If a user discusses five CRM tools over a 30-minute conversation, a summary compresses this into "User looked at CRMs". 
 
@@ -46,7 +107,7 @@ Never conflating these two timestamps prevents the system from confusing when an
 
 ---
 
-## 4. Claim-Level Knowledge Representation & Epistemic Honesty
+## 5. Claim-Level Knowledge Representation & Epistemic Honesty
 
 An AI answer is not an atomic blob. A response like:
 *"Neon costs $19/month on Launch, includes 10 GB storage, and supports 30-day PITR on Scale."*
@@ -71,7 +132,7 @@ If Neon later increases storage to 15 GB, declaring the previous answer "wrong" 
 
 ---
 
-## 5. Multi-Topic Intent Decomposition & Memory Isolation
+## 6. Multi-Topic Intent Decomposition & Memory Isolation
 
 Users frequently combine distinct research domains into a single prompt:
 *"What did we decide about CRM pricing? Also, what did we research about PostgreSQL hosting?"*
@@ -88,7 +149,7 @@ A monolithic retrieval query causes severe retrieval failures:
 
 ---
 
-## 6. Strict Source Classification & Official Domain Registry
+## 7. Strict Source Classification & Official Domain Registry
 
 A major failure mode in LLM research agents is attributing third-party aggregators or comparison blogs as "official vendor" sources simply because the vendor name appears in the article title.
 
@@ -108,7 +169,7 @@ Known third-party comparison portals and reviewer sites (`method.me`, `onepagecr
 
 ---
 
-## 7. Domain-Level Relevance Filtering & Entity Disambiguation
+## 8. Domain-Level Relevance Filtering & Entity Disambiguation
 
 Web search queries frequently retrieve superficially relevant articles that cannot substantiate specific claims. DELTA's `evaluateSourceRelevance()` pipeline rejects irrelevant sources upfront and records explicit rejection reasons:
 
@@ -125,7 +186,7 @@ Web search queries frequently retrieve superficially relevant articles that cann
 
 ---
 
-## 8. Multi-Source Conflict Detection
+## 9. Multi-Source Conflict Detection
 
 When multiple external sources report contradictory data for the same entity and billing terms (for example, one source reporting Pipedrive Advanced at $29/user/mo and another reporting $39/user/mo for annual billing), DELTA's `detectConflicts()` engine detects the discrepancy:
 - Compares normalized numeric amounts under matching billing frequencies.
@@ -134,7 +195,7 @@ When multiple external sources report contradictory data for the same entity and
 
 ---
 
-## 9. Billing Condition Comparability & Assumption Enforcement
+## 10. Billing Condition Comparability & Assumption Enforcement
 
 Price comparisons are mathematically and commercially invalid when terms differ:
 - **Annual Commitment vs. Monthly Billing:** A $100/seat/mo annual rate ($1,200/yr commitment) cannot be compared directly to a $120/mo month-to-month plan. Mismatched billing cycles produce `INCOMPARABLE_BILLING_CYCLE` and never `UNCHANGED`.
@@ -143,7 +204,7 @@ Price comparisons are mathematically and commercially invalid when terms differ:
 
 ---
 
-## 10. Deterministic Temporal Reasoning
+## 11. Deterministic Temporal Reasoning
 
 DELTA injects a deterministic `Clock` interface into its `TemporalResolver`. It handles:
 - **Relative expressions:** "Today", "Yesterday", "Tomorrow", "Last Monday", "Last Tuesday", "This week", "Last week".
@@ -153,7 +214,7 @@ DELTA injects a deterministic `Clock` interface into its `TemporalResolver`. It 
 
 ---
 
-## 11. Adaptive Research Planning
+## 12. Adaptive Research Planning
 
 Blindly triggering web searches on every conversational turn is slow, expensive, and noisy. DELTA classifies requests into seven intents:
 1. `GENERAL_CHAT` — Model response without external search.
@@ -168,7 +229,7 @@ Planning produces a typed contract (`ResearchPlan`) with explicit search queries
 
 ---
 
-## 12. Why a Modular Monolith Was Selected
+## 13. Why a Modular Monolith Was Selected
 
 Distributed microservices introduce network latency, distributed transactions, deployment fragility, and unnecessary operational overhead for an intern hiring evaluation.
 
@@ -179,7 +240,7 @@ DELTA is built as a typed, modular monolith:
 
 ---
 
-## 13. Why a Vector Database Was Not Introduced Initially
+## 14. Why a Vector Database Was Not Introduced Initially
 
 Vector databases are frequently introduced prematurely in AI applications:
 1. **Fuzzy Search Fails Exact Temporal Queries:** Semantic embeddings cannot differentiate "November 3" from "November 4" or "Last Tuesday" from "This Tuesday".
@@ -188,7 +249,7 @@ Vector databases are frequently introduced prematurely in AI applications:
 
 ---
 
-## 14. Why a Multi-Agent Swarm Was Rejected
+## 15. Why a Multi-Agent Swarm Was Rejected
 
 Multi-agent swarms (e.g., AutoGen, CrewAI) suffer from non-deterministic execution loops, high token amplification, slow response latencies, and debugging opacity.
 
@@ -199,7 +260,7 @@ DELTA uses a **single orchestrator with deterministic algorithmic pipelines**:
 
 ---
 
-## 15. Testing & Verification Architecture
+## 16. Testing & Verification Architecture
 
 DELTA features a deterministic regression test harness comprising **80 passing tests** across 7 test suites:
 1. `tests/unit/evidence-verification-remediation.test.ts` (10 tests): Strict third-party domain classification, irrelevant source filtering, unverified baseline handling, zero-changes honest reporting, billing-cycle mismatch enforcement, metric-specific claim support, cross-topic memory isolation, pure historical recall with 0 search calls, and multi-source conflict detection.
@@ -212,7 +273,7 @@ DELTA features a deterministic regression test harness comprising **80 passing t
 
 ---
 
-## 16. What Would Be Built With Another Week
+## 17. What Would Be Built With Another Week
 
 1. **Headless Browser Page Scraping:** Beyond Tavily snippets, add Playwright-based headless verification for deep DOM extraction of enterprise pricing tables behind interactive toggles.
 2. **Proactive Change Alerts:** A background cron worker (`/schedule`) that monitors stored shortlists and pushes proactive notifications when monitored vendors update pricing or ship major features.
